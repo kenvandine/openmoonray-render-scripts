@@ -1,7 +1,8 @@
 # Orbiting Camera Animation — curves.rdla
 
-Renders a full 360° orbit animation of [`curves.rdla`](curves.rdla) using
+Renders an orbiting camera animation of [`curves.rdla`](curves.rdla) using
 [OpenMoonRay](https://openmoonray.org), then assembles the frames into a video.
+The orbit can be a full 360° loop or any partial arc centred on a chosen angle.
 
 ## Requirements
 
@@ -37,8 +38,9 @@ This renders 72 frames (5° steps) in parallel and produces `orbit.mp4`.
 | `--frames` | `72` | Number of frames (72 = 5° steps) |
 | `--radius` | `1.5` | Orbit radius |
 | `--height` | `0.1` | Camera height above scene centre |
-| `--center` | `0,0.2,0` | Scene centre to orbit around |
-| `--start-angle` | `0.0` | Starting angle in degrees |
+| `--center` | `0,0.1,0` | Scene centre to orbit around |
+| `--arc` | `360` | Total arc to sweep in degrees. Values <360 are centred on `--center-angle` (e.g. `--arc 90` spans 45° to the left and 45° to the right of center) |
+| `--center-angle` | `0.0` | For a full 360° orbit: the starting angle. For a partial arc: the midpoint of the sweep |
 | `--camera-name` | `/scene/cameras/PerspectiveCamera_1` | Camera node in the scene |
 | `--layer-name` | `/scene/layers/Layer1` | Layer node in the scene |
 | `--fps` | `24` | Output video framerate |
@@ -66,8 +68,14 @@ python3 render_orbit.py --radius 2.5 --height 1.2
 python3 render_orbit.py --no-video
 ffmpeg -framerate 24 -i orbit_frames/frame_%04d.png -c:v libx264 -pix_fmt yuv420p orbit.mp4
 
-# 120 frames (3° steps) for a smoother animation
+# 120 frames (3° steps) for a smoother full orbit
 python3 render_orbit.py --frames 120
+
+# 90° arc centred straight-on: sweeps from -45° to +45°
+python3 render_orbit.py --arc 90 --center-angle 0 --frames 36
+
+# 180° arc starting from the left side (centred at 90°)
+python3 render_orbit.py --arc 180 --center-angle 90 --frames 48
 
 # Brighten output if frames are too dark
 python3 render_orbit.py --exposure 1.5

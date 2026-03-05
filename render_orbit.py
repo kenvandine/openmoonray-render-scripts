@@ -91,12 +91,23 @@ def write_camera_delta(path, camera_name, mat):
 # Orbit positions
 # ---------------------------------------------------------------------------
 
-def orbit_positions(num_frames, radius, height, center, start_angle_deg=0.0):
-    """Return list of (frame_index, angle_deg, world_pos) for each frame."""
+def orbit_positions(num_frames, radius, height, center,
+                    center_angle_deg=0.0, arc_deg=360.0):
+    """Return list of (frame_index, angle_deg, world_pos) for each frame.
+
+    For a full 360° arc the last frame is NOT the same as the first so that
+    the sequence loops cleanly.  For a partial arc both endpoints are included.
+    """
     cx, cy, cz = center
+    # For a full orbit, center_angle is the start position.
+    # For a partial arc, center_angle is the midpoint (sweep ±arc/2).
+    first = center_angle_deg if arc_deg >= 360.0 else center_angle_deg - arc_deg / 2.0
+    # Full loop: divide by N (endpoint == startpoint, so skip it).
+    # Partial arc: divide by N-1 (include both endpoints).
+    divisor = num_frames if arc_deg >= 360.0 else max(1, num_frames - 1)
     result = []
     for i in range(num_frames):
-        angle = math.radians(start_angle_deg + 360.0 * i / num_frames)
+        angle = math.radians(first + arc_deg * i / divisor)
         x = cx + radius * math.cos(angle)
         y = cy + height
         z = cz + radius * math.sin(angle)
@@ -174,8 +185,12 @@ def main():
                         help="Camera height above scene center")
     parser.add_argument("--center", default="0,0.1,0",
                         help="Scene center to orbit around (x,y,z)")
-    parser.add_argument("--start-angle", type=float, default=0.0,
-                        help="Starting angle in degrees")
+    parser.add_argument("--arc", type=float, default=360.0,
+                        help="Total arc to sweep in degrees (default 360). "
+                             "Values <360 are centred on --center-angle, so "
+                             "--arc 90 spans 45° left to 45° right of center.")
+    parser.add_argument("--center-angle", type=float, default=0.0,
+                        help="Centre angle of the arc in degrees (default 0)")
     parser.add_argument("--camera-name",
                         default="/scene/cameras/PerspectiveCamera_1",
                         help="Camera node name in the RDLA scene")
@@ -232,7 +247,11 @@ def main():
     layer_name = args.layer_name if args.layer_name else None
 
     print(f"Scene:              {scene_path}")
-    print(f"Frames:             {args.frames} ({360/args.frames:.1f}° steps)")
+    arc = args.arc
+    step = arc / args.frames if arc >= 360 else arc / max(1, args.frames - 1)
+    arc_desc = (f"{arc:.1f}° arc centred on {args.center_angle:.1f}°  "
+                f"({step:.1f}° steps)")
+    print(f"Frames:             {args.frames} — {arc_desc}")
     print(f"Orbit radius:       {args.radius}  height: {args.height}")
     print(f"Scene center:       {center}")
     print(f"Camera node:        {args.camera_name}")
@@ -246,7 +265,8 @@ def main():
 
     # --- Generate delta files ----------------------------------------------
     positions = orbit_positions(
-        args.frames, args.radius, args.height, center, args.start_angle
+        args.frames, args.radius, args.height, center,
+        args.center_angle, args.arc,
     )
     jobs = []  # (frame_idx, delta_path, exr_path, png_path, angle_deg)
     for frame_idx, angle_deg, cam_pos in positions:
